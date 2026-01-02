@@ -1,0 +1,90 @@
+let carrito = JSON.parse(localStorage.getItem("carrito")) || [];
+
+function guardar() {
+    localStorage.setItem("carrito", JSON.stringify(carrito));
+}
+
+function agregarProducto(nombre, precio) {
+    let producto = carrito.find(p => p.nombre === nombre);
+    if (producto) {
+        producto.cantidad++;
+    } else {
+        carrito.push({ nombre, precio, cantidad: 1 });
+    }
+    guardar();
+    actualizarUI();
+}
+
+function eliminarProducto(nombre) {
+    carrito = carrito.filter(p => p.nombre !== nombre);
+    guardar();
+    actualizarUI();
+}
+
+function calcularTotal() {
+    return carrito.reduce((sum, p) => sum + p.precio * p.cantidad, 0);
+}
+
+function actualizarUI() {
+    document.getElementById("contador").innerText =
+        carrito.reduce((sum, p) => sum + p.cantidad, 0);
+
+    let lista = document.getElementById("lista");
+    lista.innerHTML = "";
+
+    carrito.forEach(p => {
+        lista.innerHTML += `
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div>${p.nombre} x${p.cantidad}</div>
+                <div>
+                    RD$ ${p.precio * p.cantidad}
+                    <button class="btn btn-sm btn-danger ms-2"
+                        onclick="eliminarProducto('${p.nombre}')">X</button>
+                </div>
+            </div>
+        `;
+    });
+
+    document.getElementById("total").innerText = calcularTotal();
+}
+
+function verCarrito() {
+    actualizarUI();
+    new bootstrap.Modal(document.getElementById("carritoModal")).show();
+}
+
+function enviarWhatsApp() {
+    let mensaje = "Hola LASILLERIA 👋%0A%0A";
+    mensaje += "Quiero coordinar el envío de mi compra:%0A";
+
+    carrito.forEach(p => {
+        mensaje += `- ${p.nombre} x${p.cantidad}%0A`;
+    });
+
+    mensaje += `%0ATotal: RD$ ${calcularTotal()}%0AGracias 🙌`;
+
+    window.open(`https://wa.me/18090000000?text=${mensaje}`, "_blank");
+}
+
+/* PAYPAL */
+paypal.Buttons({
+    createOrder: (data, actions) => {
+        return actions.order.create({
+            purchase_units: [{
+                amount: {
+                    value: (calcularTotal() / 60).toFixed(2) // RD$ → USD aprox
+                }
+            }]
+        });
+    },
+    onApprove: (data, actions) => {
+        return actions.order.capture().then(() => {
+            enviarWhatsApp();
+            carrito = [];
+            guardar();
+            actualizarUI();
+        });
+    }
+}).render('#paypal-button-container');
+
+actualizarUI();
